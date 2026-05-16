@@ -11,23 +11,16 @@ const upload = multer({
 
 app.use(cors());
 
-// Modèle "small" : ~100MB RAM vs ~800MB pour le modèle par défaut
-// Nécessaire pour tenir dans les 512MB du tier gratuit Render
-const BG_CONFIG = {
-  model: "small",
-  output: { format: "image/png" },
-};
-
 app.get("/health", (_req, res) => res.json({ ok: true }));
 
 app.post("/remove-bg", upload.single("image"), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: "image manquante" });
 
   try {
-    console.log(`Traitement image : ${req.file.size} octets`);
-    const blob   = await removeBackground(req.file.buffer, BG_CONFIG);
-    const base64 = Buffer.from(await blob.arrayBuffer()).toString("base64");
-    console.log("Traitement terminé");
+    // Créer le Blob avec le bon type MIME — sinon la librairie ne reconnaît pas le format
+    const blob   = new Blob([req.file.buffer], { type: req.file.mimetype || "image/jpeg" });
+    const result = await removeBackground(blob, { output: { format: "image/png" } });
+    const base64 = Buffer.from(await result.arrayBuffer()).toString("base64");
     res.json({ result: `data:image/png;base64,${base64}` });
   } catch (err) {
     console.error("Erreur :", err.message || err);
